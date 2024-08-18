@@ -1,0 +1,132 @@
+Ericsson RBS 6xxx
+TCU 02
+This is basically a SIU 02 re-packaged from 1U into the RBS6000 form-factor.
+
+Connectors
+Power
+It uses the same connector like e.g. the DUL 20 or DUG 20 units.
+
+Console
+This is an RJ45 Ethernet port.
+
+It is configured to a fixed IP address of 192.168.1.1/24 and provides telnet + SSH access.
+
+The default user name is admin; the default password is hidden.
+
+You will get access to a command line interface:
+
+Trying 192.168.1.1...
+Connected to 192.168.1.1.
+Escape character is '^]'.
+
+login: admin
+Password: 
+STN CLI - ready
+OSmon>
+Clock
+The external clock port is labeled "GPS", and is now a 8-pin GPS connector similar to the DUL 20 or DUS 20 and as such can connect to a GPS 02. This instead of 10-pin SYNC connector as on the SIU 02.
+
+E1/T1
+There are 8 E1/T1 ports, on 4 RJ-45 connectors. Same dual E1/T1 pinout as DAHDI cards.
+
+Pinout TODO
+
+Transport Network
+4x RJ45 Ethernet
+4x 1G SFP cages for the Transport Network (TN).
+The ports are combo, ie, you must choose a RJ-45 OR SFP (max 4 TN ports active).
+
+Configuration
+Basic Configuration
+ 
+# Start Transaction
+starttransaction trans1
+
+# Hostname
+setmoattribute trans1 STN=0 stn_name TCU0201-lab
+
+# settime Year(1970->) Mon(1-12) Day(1-31) Hour(0-23) Min(0-59) Sec(0-59) Msec(0-999)
+settime 2020 11 27 19 30 00 000
+
+# Clock input from GPS
+setmoattribute trans1 STN=0,Synchronization=0 synchType clockInput
+
+# Create E1 interface 0
+createmo trans1 STN=0,E1T1Interface=0
+
+# Setup E1 port 0 to transmit timing from local src, and do not use any timing received on the line.
+setmoattribute trans1 STN=0,E1T1Interface=0 type E1
+setmoattribute trans1 STN=0,E1T1Interface=0 transmitClockSource localTiming
+setmoattribute trans1 STN=0,E1T1Interface=0 receiveClockSource notUsed
+Transport Network (L2/L3)
+# Create Ethernet Interface/L2
+createmo trans1 STN=0,EthernetInterface=WAN
+setmoattribute trans1 STN=0,EthernetInterface=WAN portId TN_A
+setmoattribute trans1 STN=0,EthernetInterface=WAN mode AUTO
+
+# VLAN group for 2G ABISoIP and OAM
+createmo trans1 STN=0,VLANGroup=WAN
+setmoattribute trans1 STN=0,VLANGroup=WAN depLinkLayer STN=0,EthernetInterface=WAN
+
+# ABISoIP VLAN
+createmo trans1 STN=0,VLANGroup=WAN,VLAN=2G
+setmoattribute trans1 STN=0,VLANGroup=WAN,VLAN=2G tagValue 670
+setmoattribute trans1 STN=0,VLANGroup=WAN,VLAN=2G tagged true
+
+# OAM VLAN
+createmo trans1 STN=0,VLANGroup=WAN,VLAN=OM
+setmoattribute trans1 STN=0,VLANGroup=WAN,VLAN=OM tagValue 770
+setmoattribute trans1 STN=0,VLANGroup=WAN,VLAN=OM tagged true
+
+# IP Interfaces/L3 - ABISoIP
+createmo trans1 STN=0,IPInterface=2G
+setmoattribute trans1 STN=0,IPInterface=2G primaryIP_Address 10.245.67.10
+setmoattribute trans1 STN=0,IPInterface=2G primarySubNetMask 255.255.255.0
+setmoattribute trans1 STN=0,IPInterface=2G depLinkLayer STN=0,VLANGroup=WAN,VLAN=2G
+setmoattribute trans1 STN=0,IPInterface=2G trustDSCP true
+
+# IP Interfaces/L3 - OAM
+createmo trans1 STN=0,IPInterface=OM
+setmoattribute trans1 STN=0,IPInterface=OM primaryIP_Address 10.245.77.10
+setmoattribute trans1 STN=0,IPInterface=OM primarySubNetMask 255.255.255.0
+setmoattribute trans1 STN=0,IPInterface=OM defaultGateway 10.245.77.1
+setmoattribute trans1 STN=0,IPInterface=OM depLinkLayer STN=0,VLANGroup=WAN,VLAN=OM
+setmoattribute trans1 STN=0,IPInterface=OM trustDSCP true
+setmoattribute trans1 STN=0 depIP_interface stn=0,ipinterface=OM
+
+# NTP Server - System Clock
+setmoattribute trans1 STN=0 systemClockTimeServer 10.1.1.1
+setmoattribute trans1 STN=0 systemClockTimeServerType NTP
+setmoattribute trans1 STN=0 STN_systemClockUDP_Port 123
+ABISoIP Configuration
+# Trunk Group IP Transport
+createmo trans1 STN=0,TGTransport=BTS01-TG01
+setmoattribute trans1 STN=0,TGTransport=BTS01-TG01 depIP_interface stn=0,ipinterface=2G
+setmoattribute trans1 STN=0,TGTransport=BTS01-TG01 pgw_ip_address 10.245.70.15
+setmoattribute trans1 STN=0,TGTransport=BTS01-TG01 DSCP_L2TP_CP 48
+
+# Super Channel 
+createmo trans1 STN=0,TGTransport=BTS01-TG01,SuperChannel=0
+setmoattribute trans1 STN=0,TGTransport=BTS01-TG01,SuperChannel=0 depE1T1Interface 0
+Optional
+# NTP - Possibly for Stratum 0 timing reference? 
+setmoattribute trans1 STN=0,synchronization=0 synchType timeServer
+setmoattribute trans1 STN=0,synchronization=0 DSCP_synchronization 48 !DSCP for Synchronization!
+setmoattribute trans1 STN=0,synchronization=0 depIP_interface stn=0,ipinterface=OM
+createmo trans1 STN=0,synchronization=0,Timeserver=TS1
+setmoattribute trans1 STN=0,synchronization=0,Timeserver=TS1 timeServerType NTP
+setmoattribute trans1 STN=0,synchronization=0,Timeserver=TS1 STN_TS_UDP_Port 123
+setmoattribute trans1 STN=0,synchronization=0,Timeserver=TS1 TS_IP_Address 10.1.1.1
+setmoattribute trans1 STN=0,synchronization=0,Timeserver=TS1 TS_Priority 1
+
+# Route for ABISoIP interface 
+createmo trans2 STN=0,RoutingTable=0,IPRoute=2G
+setmoattribute trans1 STN=0,RoutingTable=0,IPRoute=2G forwardingInterface STN=0,IPInterface=2G
+setmoattribute trans1 STN=0,RoutingTable=0,IPRoute=2G nextHopIpAddress 10.245.67.1
+setmoattribute trans1 STN=0,RoutingTable=0,IPRoute=2G destIpSubnet 10.245.70.0/24
+setmoattribute trans1 STN=0,RoutingTable=0,IpRoute=2G admDistance 2
+Configuration Commit
+# Commit and close 
+checkconsistency trans1
+commit trans1
+endtransaction trans1
