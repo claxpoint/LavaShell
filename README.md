@@ -1,4 +1,5 @@
 # LavaShell
 Analyzing GSM
 
-![logo_circle](https://github.com/user-attachments/assets/8bc145ae-f731-4c28-8d3b-0d03ad60cd48)
+![logo_name_circle](https://github.com/user-attachments/assets/b2eb7b03-813a-4e59-bc02-b5fe23ca156e)
+
